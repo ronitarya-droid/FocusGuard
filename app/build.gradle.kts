@@ -22,7 +22,18 @@ android {
 
     buildTypes {
         release {
-            isMinifyEnabled = false
+            // R8 minification + resource shrinking. CRITICAL for FocusGuard:
+            // without this, the release APK is trivially reversible via
+            // 'apktool d' — an attacker (or a determined user) can read every
+            // blocked package name, every keyword, and every bypass-detection
+            // rule in plaintext, then craft a targeted workaround.
+            //
+            // With R8 enabled, class/field/method names are obfuscated and
+            // unused code is stripped. The proguard-rules.pro file keeps the
+            // Android-entry-point classes intact (manifest-referenced
+            // Activities, Services, Receivers, DeviceAdminReceiver subclasses).
+            isMinifyEnabled = true
+            isShrinkResources = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"

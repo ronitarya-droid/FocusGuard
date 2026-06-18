@@ -31,6 +31,7 @@ class CreditManager(context: Context) {
         private const val KEY_CREDIT_SECONDS = "credit_seconds"
         private const val KEY_LAST_LOG_DAY = "last_log_epoch_day"
         private const val KEY_HISTORY = "study_history"
+        private const val KEY_HIGHEST_DAY = "highest_day_seen"  // clock-rollback guard
     }
 
     // ---- credit balance (seconds) ----
@@ -64,11 +65,43 @@ class CreditManager(context: Context) {
     /** True if today's study has already been logged (one entry per day). */
     fun isLoggedToday(): Boolean = prefs.getLong(KEY_LAST_LOG_DAY, -1L) == todayEpochDay()
 
-    fun canLogNow(): Boolean = isLogWindowOpen() && !isLoggedToday()
+    fun canLogNow(): Boolean = isLogWindowOpen() && !isLoggedToday() && !wasClockRolledBackToday()
+
+    /**
+     * CLOCK-ROLLBACK GUARD for the credit window.
+     *
+     * Without this, a user could:
+     *   1. Log study at 22:30 (now logged as "today")
+     *   2. Realize they want more credits
+     *   3. Set the phone date FORWARD to the next day
+     *   4. Now isLoggedToday() returns false again → log again
+     *   5. Repeat for unlimited credits
+     *
+     * Defense: track the highest wall-clock day we've ever seen. If
+     * todayEpochDay() is LESS than that highest-seen day, the clock was
+     * rolled back — refuse to log until the user comes back to (or past)
+     * the day they tried to skip to.
+     */
+    private var highestDaySeen: Long
+        get() = prefs.getLong(KEY_HIGHEST_DAY, 0L)
+        set(v) = prefs.edit().putLong(KEY_HIGHEST_DAY, v).apply()
+
+    /** True if the user has rolled the clock back past the highest day
+     *  we've previously recorded. Blocks credit logging until they
+     *  restore the real date. */
+    fun wasClockRolledBackToday(): Boolean {
+        val today = todayEpochDay()
+        if (today > highestDaySeen) {
+            highestDaySeen = today
+            return false
+        }
+        return today < highestDaySeen
+    }
 
     /**
      * Log today's study hours and bank the credit. Returns the play-seconds added,
-     * or -1 if logging isn't allowed right now (window closed or already logged).
+     * or -1 if logging isn't allowed right now (window closed, already logged,
+     * or clock rolled back).
      */
     fun logStudyHours(hours: Double): Long {
         if (!canLogNow()) return -1L
@@ -76,6 +109,8 @@ class CreditManager(context: Context) {
         addStudyHours(hours)
         recordTodayMinutes((hours * 60.0).toInt())
         prefs.edit().putLong(KEY_LAST_LOG_DAY, todayEpochDay()).apply()
+        // Advance highestDaySeen so a rollback after logging is caught.
+        highestDaySeen = maxOf(highestDaySeen, todayEpochDay())
         return creditSeconds() - before
     }
 

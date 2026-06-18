@@ -206,6 +206,44 @@ class GuardAccessibilityService : AccessibilityService() {
             "apppermissions",
             "managestandardpermission"
         )
+
+        /** Browser-internal settings screens (chromium scheme + about: URIs).
+         *  These are where a user can enable DNS-over-HTTPS inside the browser,
+         *  which would tunnel DNS queries around the system Private DNS lock
+         *  (Cloudflare Family). Blocking these screens is the only way to
+         *  prevent the DoH bypass without root — the browser-internal DoH
+         *  resolver uses direct HTTPS to 1.1.1.1 / 8.8.8.8 and ignores the
+         *  system Private DNS setting entirely.
+         *
+         *  We match on className substrings because Android surfaces
+         *  chrome://settings as "org.chromium.chrome.browser.settings.Settings"
+         *  and Firefox's about:preferences as "org.mozilla.gecko.preferences".
+         *  Generic class-name fragments cover both + Kiwi + Brave + Edge. */
+        private val BROWSER_SETTINGS_CLASS_HINTS = listOf(
+            "settings.settings",          // chromium Settings activity
+            "settings.activity",          // generic chromium settings
+            "preferences",                // mozilla.gecko.preferences / firefox
+            "aboutconfig",                // firefox about:config
+            "flagsactivity",              // chrome://flags (can disable SafeSearch)
+            "advancedsettings",           // chrome advanced privacy/security
+            "privacysettings",
+            "securitysettings"
+        )
+
+        /** IP literals that, if seen in a browser URL bar, mean the user is
+         *  trying to reach a DNS-over-HTTPS / DNS-over-TLS resolver directly
+         *  to bypass the Cloudflare Family lock. Matching is on the URL bar
+         *  text only (not arbitrary on-screen text) so a search result listing
+         *  "8.8.8.8" doesn't false-trigger. */
+        private val DOH_IP_LITERALS = setOf(
+            "1.1.1.1", "1.0.0.1",        // Cloudflare (non-family)
+            "8.8.8.8", "8.8.4.4",        // Google
+            "9.9.9.9", "149.112.112.112",// Quad9
+            "208.67.222.222", "208.67.220.220", // OpenDNS
+            "94.140.14.14", "94.140.15.15",     // AdGuard
+            "76.76.19.19", "76.223.122.150",   // Control D
+            "0.0.0.0"                    // sometimes used as a placeholder for "off"
+        )
     }
 
     // Throttle the window-scan (battery friendliness).
@@ -287,6 +325,20 @@ class GuardAccessibilityService : AccessibilityService() {
         if (PURE_DANGER_PACKAGE_HINTS.any { it in evtPkgLc } ||
             DANGER_CLASS_HINTS.any { it in evtCls }) {
             Log.d(TAG, "Self-defense block [fast] pkg=$evtPkg cls=$evtCls")
+            blockNow()
+            return
+        }
+
+        // 0a. BROWSER SETTINGS BLOCK. Chromium / Firefox / Kiwi / Brave / Edge
+        //     all expose DNS-over-HTTPS toggles inside their own settings screens.
+        //     If the user opens ANY browser's settings page, bounce them — they
+        //     can't reach the DoH toggle that would tunnel around Cloudflare
+        //     Family. This is the strongest non-root defense against browser
+        //     DoH bypass. (Settings activity class names contain "settings" /
+        //     "preferences" fragments; matched only when fired by a browser.)
+        if (evtPkg in BROWSER_PACKAGES &&
+            BROWSER_SETTINGS_CLASS_HINTS.any { it in evtCls }) {
+            Log.d(TAG, "Browser settings block (DoH bypass prevention): pkg=$evtPkg cls=$evtCls")
             blockNow()
             return
         }
@@ -384,7 +436,24 @@ class GuardAccessibilityService : AccessibilityService() {
             // page that merely mentions a word isn't blocked — only a search/URL.
             Log.d(TAG, "Keyword-in-URL block: $urlBar")
             goHome()
+        } else if (isDoHBypassAttempt(urlBar)) {
+            // User typed a DoH resolver IP (1.1.1.1 / 8.8.8.8 / 9.9.9.9 / ...)
+            // directly in the address bar — they're trying to reach a
+            // DNS-over-HTTPS endpoint to tunnel around the Cloudflare Family
+            // lock. Hard-bounce.
+            Log.d(TAG, "DoH bypass attempt (IP literal in URL bar): $urlBar")
+            goHome()
         }
+    }
+
+    /** Returns true if the URL-bar text contains a known DNS-over-HTTPS /
+     *  DNS-over-TLS resolver IP literal. Matched on the URL bar ONLY so a
+     *  search result listing "8.8.8.8" never false-triggers. */
+    private fun isDoHBypassAttempt(urlBar: String): Boolean {
+        // Use word-boundary matching so "18.8.8.8" or "8.8.8.81" don't false-fire.
+        // The IP regex matches IPv4 literals; we then check membership in the set.
+        val ipRegex = Regex("(?<![\\d.])(\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3})(?![\\d.])")
+        return ipRegex.findAll(urlBar).any { it.groupValues[1] in DOH_IP_LITERALS }
     }
 
     /** Read the current browser address-bar text, or null if not found. We walk

@@ -1,0 +1,30 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Shield body -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M54,26
+            C54,26 41,33 31,33
+            C31,33 30,33 30,35
+            L30,56
+            C30,70 40,80 54,86
+            C68,80 78,70 78,56
+            L78,35
+            C78,33 77,33 77,33
+            C67,33 54,26 54,26 Z" />
+    <!-- Checkmark cut-out -->
+    <path
+        android:fillColor="#FF7A18"
+        android:pathData="M48.5,64.5
+            L40.5,56.5
+            C39.5,55.5 39.5,54 40.5,53
+            C41.5,52 43,52 44,53
+            L48.5,57.5
+            L64,42
+            C65,41 66.5,41 67.5,42
+            C68.5,43 68.5,44.5 67.5,45.5
+            Z" />
+</vector>

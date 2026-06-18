@@ -1,0 +1,17 @@
+<resources xmlns:tools="http://schemas.android.com/tools">
+    <!-- Dark, edge-to-edge, no action bar. Matches the in-code Ui palette. -->
+    <style name="Theme.FocusGuard" parent="Theme.Material3.DayNight.NoActionBar">
+        <item name="android:windowBackground">@android:color/black</item>
+        <item name="android:statusBarColor">#0B0B0F</item>
+        <item name="android:navigationBarColor">#0B0B0F</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:alertDialogTheme">@style/Theme.FocusGuard.Dialog</item>
+    </style>
+
+    <!-- Dark dialog so the unblock/confirm popups match the app, not a white box. -->
+    <style name="Theme.FocusGuard.Dialog" parent="@android:style/Theme.Material.Dialog.Alert">
+        <item name="android:colorBackground">#16161D</item>
+        <item name="android:textColorPrimary">#F5F5F7</item>
+        <item name="android:colorAccent">#FF7A18</item>
+    </style>
+</resources>

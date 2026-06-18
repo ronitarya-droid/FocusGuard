@@ -47,8 +47,9 @@ class GuardAccessibilityService : AccessibilityService() {
         /** Packages the user explicitly wants to keep unblocked. Any package in
          *  this set is removed from both the in-memory blockedPackages set AND
          *  the persisted Blocklist storage every time the service connects, so
-         *  even auto-captured installs get cleaned up. */
-        private val WHITELISTED_PACKAGES = setOf(
+         *  even auto-captured installs get cleaned up. Visible to the package
+         *  so PackageInstallReceiver can skip them when a new install is detected. */
+        internal val WHITELISTED_PACKAGES = setOf(
             "com.whatsapp"                    // user needs WhatsApp + Web WhatsApp
         )
 

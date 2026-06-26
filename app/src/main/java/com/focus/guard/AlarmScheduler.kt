@@ -57,6 +57,17 @@ object AlarmScheduler {
         try { am(context).cancel(pending(context, id)) } catch (_: Exception) {}
     }
 
+    /** True if an alarm is currently ringing OR due within [withinMs]. Used by
+     *  the accessibility service to decide whether to block the power-off dialog. */
+    fun alarmActiveOrImminent(context: Context, withinMs: Long = 30 * 60 * 1000L): Boolean {
+        if (AlarmRingActivity.RINGING) return true
+        val now = System.currentTimeMillis()
+        return AlarmStore.all(context).any { a ->
+            if (!a.enabled) false
+            else (nextTrigger(a.hour, a.minute) - now) in 0..withinMs
+        }
+    }
+
     fun rescheduleAll(context: Context) {
         for (a in AlarmStore.all(context)) schedule(context, a)
     }

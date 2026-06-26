@@ -37,6 +37,16 @@ object AlarmStore {
 
     fun get(context: Context, id: Int): FgAlarm? = all(context).firstOrNull { it.id == id }
 
+    /** Records the wall-clock time an alarm actually fired, so BootReceiver can
+     *  tell whether the phone was powered off when it should have rung. */
+    fun markFired(context: Context, id: Int) {
+        prefs(context).edit().putLong("fired_$id", System.currentTimeMillis()).apply()
+    }
+
+    /** Last wall-clock time the given alarm fired, or 0 if never. */
+    fun lastFired(context: Context, id: Int): Long =
+        prefs(context).getLong("fired_$id", 0L)
+
     fun put(context: Context, alarm: FgAlarm) {
         val list = all(context).filter { it.id != alarm.id } + alarm
         save(context, list)

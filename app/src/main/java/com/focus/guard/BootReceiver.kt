@@ -56,6 +56,13 @@ class BootReceiver : BroadcastReceiver() {
         context.startForegroundService(Intent(context, GuardForegroundService::class.java))
         AlarmScheduler.rescheduleAll(context)
 
+        // MISSED-ALARM RE-FIRE: if the phone was powered off when an alarm
+        // should have fired, detect it now and ring immediately — plus record
+        // a streak relapse so powering off has a real cost. This is what makes
+        // "I'll just switch off the phone" pointless: the alarm fires the
+        // moment the phone boots back up, AND you lose your streak.
+        checkMissedAlarms(context)
+
         // Re-apply the system-DNS lock (and the watchdog) on every boot.
         // The boot path is the most likely place a malicious actor would try
         // to revert Private DNS, so we do this unconditionally if the user
@@ -70,5 +77,61 @@ class BootReceiver : BroadcastReceiver() {
 
     companion object {
         private const val TAG = "FocusGuardBoot"
+    }
+
+    /**
+     * Detects alarms that were missed because the phone was powered off.
+     *
+     * For each enabled alarm, computes today's scheduled time. If that time has
+     * already passed AND the alarm hasn't fired since then (tracked via
+     * [AlarmStore.markFired]), the phone was off when it should have rung.
+     *
+     * On detection:
+     *  1. Records a streak relapse (powering off to dodge an alarm is a
+     *     deliberate bypass — same as Safe Mode entry).
+     *  2. Re-fires the alarm immediately (after a 3s delay to let the system
+     *     settle post-boot), but only if it was missed within the last 6 hours
+     *     — so we don't blast a 7am alarm at 9pm when the user finally boots.
+     */
+    private fun checkMissedAlarms(context: Context) {
+        val now = System.currentTimeMillis()
+        val reFireWindow = 6 * 60 * 60 * 1000L  // 6 hours
+        var missedId = -1
+        var missedTime = 0L
+
+        for (a in AlarmStore.all(context)) {
+            if (!a.enabled) continue
+            val c = java.util.Calendar.getInstance().apply {
+                set(java.util.Calendar.HOUR_OF_DAY, a.hour)
+                set(java.util.Calendar.MINUTE, a.minute)
+                set(java.util.Calendar.SECOND, 0)
+                set(java.util.Calendar.MILLISECOND, 0)
+            }
+            val todayAlarm = c.timeInMillis
+            // Today's alarm time has passed, but it never fired → phone was off.
+            if (todayAlarm < now && AlarmStore.lastFired(context, a.id) < todayAlarm) {
+                missedId = a.id
+                missedTime = todayAlarm
+                break
+            }
+        }
+
+        if (missedId < 0) return
+
+        Log.w(TAG, "Missed alarm $missedId (due $missedTime) — phone was off. Recording tamper + re-firing.")
+        try { StreakManager(context).recordRelapse() } catch (_: Exception) {}
+
+        if (now - missedTime > reFireWindow) return  // too long ago — skip the sound
+
+        // Fire after a short delay so the system is fully booted.
+        android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
+            try {
+                val fire = Intent(context, AlarmReceiver::class.java).apply {
+                    action = "com.focus.guard.ALARM_FIRE"
+                    putExtra(AlarmScheduler.EXTRA_ID, missedId)
+                }
+                context.sendBroadcast(fire)
+            } catch (_: Exception) {}
+        }, 3000L)
     }
 }

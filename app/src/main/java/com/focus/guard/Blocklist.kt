@@ -7,8 +7,11 @@ import android.content.Context
  * keywords. The hard-coded social/adult defaults live in
  * [GuardAccessibilityService]; THIS store holds what the user adds at runtime
  * (app picker, website/keyword screen) plus packages auto-captured by
- * [PackageInstallReceiver]. SharedPreferences means choices survive reboot and
- * service restart, which an in-memory set would not.
+ * [PackageInstallReceiver] on every fresh install. SharedPreferences means
+ * choices survive reboot and service restart, which an in-memory set would not.
+ *
+ * Note: package captures from [PackageInstallReceiver] are PERMANENT — there is
+ * no approval gate. The only escape is a Recovery Mode factory reset.
  */
 object Blocklist {
     private const val PREFS = "focusguard_blocklist"

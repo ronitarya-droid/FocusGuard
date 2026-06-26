@@ -74,8 +74,14 @@ class DnsFilterService : Service() {
     private fun startInForeground() {
         if (Build.VERSION.SDK_INT >= 26) {
             val mgr = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
-            // Re-create each time so the channel picks up any user edits.
-            mgr.deleteNotificationChannel(CHANNEL_ID)
+            // createNotificationChannel is idempotent — creating an existing
+            // channel is a no-op (it keeps its old importance). We must NOT
+            // delete+recreate it here: while a foreground service holds the
+            // channel, deleteNotificationChannel throws
+            //   SecurityException: Not allowed to delete channel dns_filter
+            //     with a foreground service
+            // which crashed the whole process (and took the accessibility
+            // service down with it). Just ensure it exists.
             mgr.createNotificationChannel(
                 NotificationChannel(CHANNEL_ID, "DNS Filter",
                     NotificationManager.IMPORTANCE_MIN).apply {

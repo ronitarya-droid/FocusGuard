@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Paths exposed by the FocusGuard FileProvider.
+
+    The alarm ring screen captures a "wake proof" photo into the app cache
+    dir (cacheDir/wake_proof.jpg) and hands a content:// Uri to the system
+    camera via ACTION_IMAGE_CAPTURE / TakePicture. Only cache-path is needed.
+-->
+<paths xmlns:android="http://schemas.android.com/apk/res/android">
+    <cache-path name="proof_images" path="."/>
+</paths>

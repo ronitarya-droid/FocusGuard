@@ -20,6 +20,8 @@ class AlarmReceiver : BroadcastReceiver() {
         val id = intent.getIntExtra(AlarmScheduler.EXTRA_ID, -1)
         if (id < 0) return
 
+        AlarmStore.markFired(context, id)
+
         val ch = "alarm_fire"
         val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         if (Build.VERSION.SDK_INT >= 26) {
@@ -39,7 +41,7 @@ class AlarmReceiver : BroadcastReceiver() {
 
         val n = NotificationCompat.Builder(context, ch)
             .setContentTitle("⏰ Alarm")
-            .setContentText("Solve 5 maths problems to turn it off")
+            .setContentText("Walk 100 steps, then solve 5 maths to turn it off")
             .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
             .setPriority(NotificationCompat.PRIORITY_MAX)
             .setCategory(NotificationCompat.CATEGORY_ALARM)

@@ -5,17 +5,26 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
 import android.view.Gravity
-import android.view.ViewGroup
+import android.view.View
+import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import android.widget.LinearLayout
-import android.widget.ScrollView
-import android.widget.Switch
 import androidx.activity.ComponentActivity
 import androidx.activity.result.contract.ActivityResultContracts
+import com.focus.guard.Ui.Radius
+import com.focus.guard.Ui.Space
 import com.focus.guard.Ui.dp
-import com.focus.guard.Ui.gradient
+import com.focus.guard.Ui.dpf
+import com.focus.guard.Ui.icon
+import com.focus.guard.Ui.iconChip
 import com.focus.guard.Ui.lp
+import com.focus.guard.Ui.primaryButton
 import com.focus.guard.Ui.rounded
+import com.focus.guard.Ui.row
+import com.focus.guard.Ui.scaffold
+import com.focus.guard.Ui.stat
+import com.focus.guard.Ui.switch
 import com.focus.guard.Ui.text
+import com.focus.guard.Ui.tintWash
 import java.util.Calendar
 
 /** Manage alarms: add (time + custom mp3), toggle, delete. Dismiss = solve maths. */
@@ -42,28 +51,18 @@ class AlarmListActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        val content = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            setBackgroundColor(Ui.BG)
-            setPadding(dp(20), dp(28), dp(20), dp(32))
-        }
-        content.addView(text("Alarms", 24f, Ui.TEXT, bold = true))
-        content.addView(text("Dismiss by solving 5 maths problems. Sound pauses 60s per question.",
-            13.5f, Ui.TEXT_DIM), lp(topMargin = dp(4)))
-
-        content.addView(text("➕  Add alarm", 15.5f, Ui.TEXT, bold = true).apply {
-            gravity = Gravity.CENTER
-            background = gradient(Ui.ACCENT, Ui.ACCENT_2, dp(16).toFloat())
-            setPadding(dp(18), dp(15), dp(18), dp(15))
-            isClickable = true
-            setOnClickListener { addAlarm() }
-        }, lp(topMargin = dp(16)))
-
-        listCol = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
-        content.addView(listCol, lp(topMargin = dp(8)))
-
-        setContentView(ScrollView(this).apply {
-            setBackgroundColor(Ui.BG); isFillViewport = true; addView(content)
+        setContentView(scaffold(
+            title = "Alarms",
+            subtitle = "Walk 100 steps, then solve 5 maths",
+            onBack = { finish() }
+        ) { content ->
+            content.addView(primaryButton("Add alarm", R.drawable.ic_plus) { addAlarm() },
+                lp(topMargin = dp(Space.sm)))
+            content.addView(text("When it rings: tap Start, walk 100 steps (stop for 10s and it " +
+                "rings again), then solve 5 maths — it stays quiet while you solve, standing still.",
+                12.5f, Ui.TEXT_MUTE).apply { setPadding(dp(Space.xs), dp(Space.md), 0, 0) })
+            listCol = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+            content.addView(listCol, lp(topMargin = dp(Space.md)))
         })
         render()
     }
@@ -82,70 +81,82 @@ class AlarmListActivity : ComponentActivity() {
         listCol.removeAllViews()
         val alarms = AlarmStore.all(this).sortedWith(compareBy({ it.hour }, { it.minute }))
         if (alarms.isEmpty()) {
-            listCol.addView(text("No alarms yet.", 14f, Ui.TEXT_MUTE).apply {
-                setPadding(dp(2), dp(20), 0, 0)
-            })
+            listCol.addView(emptyState())
             return
         }
-        for (a in alarms) listCol.addView(row(a), lp(topMargin = dp(12)))
+        for (a in alarms) listCol.addView(row(a), lp(topMargin = dp(Space.md)))
     }
 
     private fun row(a: FgAlarm): LinearLayout {
-        val card = LinearLayout(this).apply {
+        val cardV = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            background = rounded(Ui.SURFACE, dp(16).toFloat(), Ui.STROKE, dp(1))
-            setPadding(dp(16), dp(14), dp(16), dp(14))
+            background = rounded(Ui.SURFACE, dpf(Radius.lg), Ui.STROKE, dp(1))
+            setPadding(dp(18), dp(16), dp(18), dp(16))
+            elevation = dpf(3f)
         }
         val top = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
         }
+        top.addView(iconChip(R.drawable.ic_alarm, Ui.AMBER, tintWash(Ui.AMBER), 40, Radius.md).also {
+            (it.layoutParams as LinearLayout.LayoutParams).rightMargin = dp(Space.md)
+        })
         val timeStr = String.format("%02d:%02d", a.hour, a.minute)
-        top.addView(text(timeStr, 30f, Ui.TEXT, bold = true).apply {
-            layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+        top.addView(stat(timeStr, 30f, Ui.TEXT).apply {
+            layoutParams = row(0, 1f, Gravity.CENTER_VERTICAL)
         })
-        top.addView(Switch(this).apply {
-            isChecked = a.enabled
-            setOnCheckedChangeListener { _, on ->
-                val u = a.copy(enabled = on)
-                AlarmStore.put(this@AlarmListActivity, u)
-                if (on) AlarmScheduler.schedule(this@AlarmListActivity, u)
-                else AlarmScheduler.cancel(this@AlarmListActivity, a.id)
-            }
+        top.addView(switch(a.enabled) { on ->
+            val u = a.copy(enabled = on)
+            AlarmStore.put(this@AlarmListActivity, u)
+            if (on) AlarmScheduler.schedule(this@AlarmListActivity, u)
+            else AlarmScheduler.cancel(this@AlarmListActivity, a.id)
         })
-        card.addView(top)
+        cardV.addView(top)
 
         val soundName = a.uri?.let { displayName(Uri.parse(it)) } ?: "Default alarm tone"
-        card.addView(text("🎵 $soundName", 13f, Ui.TEXT_DIM).apply {
-            maxLines = 1; setPadding(0, dp(6), 0, 0)
+        val soundRow = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
+            setPadding(0, dp(Space.md), 0, 0)
+        }
+        soundRow.addView(icon(R.drawable.ic_music, Ui.TEXT_MUTE, 15).apply {
+            (layoutParams as LinearLayout.LayoutParams).rightMargin = dp(7)
         })
+        soundRow.addView(text(soundName, 13f, Ui.TEXT_DIM).apply { maxLines = 1 })
+        cardV.addView(soundRow)
 
         val actions = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL; setPadding(0, dp(12), 0, 0)
+            orientation = LinearLayout.HORIZONTAL; setPadding(0, dp(Space.md), 0, 0)
         }
-        actions.addView(text("Choose mp3", 13.5f, Ui.TEXT, bold = true).apply {
-            background = rounded(Ui.SURFACE_HI, dp(10).toFloat())
-            setPadding(dp(14), dp(9), dp(14), dp(9))
-            isClickable = true
-            setOnClickListener {
-                pickForId = a.id
-                pickSound.launch(arrayOf("audio/*"))
-            }
+        actions.addView(actionChip(R.drawable.ic_music, "Choose mp3", Ui.TEXT) {
+            pickForId = a.id
+            pickSound.launch(arrayOf("audio/*"))
         })
-        actions.addView(text("Delete", 13.5f, Ui.RED, bold = true).apply {
-            background = rounded(0x22F87171, dp(10).toFloat())
+        actions.addView(actionChip(R.drawable.ic_trash, "Delete", Ui.RED, dp(Space.sm)) {
+            AlarmScheduler.cancel(this@AlarmListActivity, a.id)
+            AlarmStore.delete(this@AlarmListActivity, a.id)
+            render()
+        })
+        cardV.addView(actions)
+        return cardV
+    }
+
+    private fun actionChip(iconRes: Int, label: String, color: Int, leftMargin: Int = 0,
+                           onClick: () -> Unit): LinearLayout {
+        val v = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
+            background = Ui.pressable(rounded(
+                if (color == Ui.RED) Ui.RED_SOFT else Ui.SURFACE_HI, dpf(Radius.sm)))
             setPadding(dp(14), dp(9), dp(14), dp(9))
             isClickable = true
-            setOnClickListener {
-                AlarmScheduler.cancel(this@AlarmListActivity, a.id)
-                AlarmStore.delete(this@AlarmListActivity, a.id)
-                render()
+            setOnClickListener { onClick() }
+            layoutParams = LinearLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT).apply {
+                this.leftMargin = leftMargin
             }
-            (layoutParams as? LinearLayout.LayoutParams)
-        }, LinearLayout.LayoutParams(
-            ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT
-        ).apply { leftMargin = dp(10) })
-        card.addView(actions)
-        return card
+        }
+        v.addView(icon(iconRes, color, 16).apply {
+            (layoutParams as LinearLayout.LayoutParams).rightMargin = dp(7)
+        })
+        v.addView(text(label, 13.5f, color, bold = true))
+        return v
     }
 
     private fun displayName(uri: Uri): String {
@@ -155,5 +166,19 @@ class AlarmListActivity : ComponentActivity() {
                 if (idx >= 0 && c.moveToFirst()) c.getString(idx) else uri.lastPathSegment ?: "Custom"
             } ?: (uri.lastPathSegment ?: "Custom")
         } catch (_: Exception) { "Custom sound" }
+    }
+
+    private fun emptyState(): View = LinearLayout(this).apply {
+        orientation = LinearLayout.VERTICAL
+        gravity = Gravity.CENTER_HORIZONTAL
+        background = rounded(Ui.SURFACE, dpf(Radius.lg), Ui.STROKE, dp(1))
+        setPadding(dp(Space.xl), dp(Space.xxl), dp(Space.xl), dp(Space.xxl))
+        addView(icon(R.drawable.ic_alarm, Ui.TEXT_MUTE, 30))
+        addView(text("No alarms yet", 16f, Ui.TEXT, bold = true).apply {
+            gravity = Gravity.CENTER; setPadding(0, dp(Space.md), 0, 0)
+        })
+        addView(text("Tap “Add alarm” to create one.", 13.5f, Ui.TEXT_MUTE).apply {
+            gravity = Gravity.CENTER; setPadding(0, dp(Space.xs), 0, 0)
+        })
     }
 }

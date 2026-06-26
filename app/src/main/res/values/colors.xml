@@ -2,4 +2,15 @@
 <resources>
     <color name="black">#FF000000</color>
     <color name="white">#FFFFFFFF</color>
+
+    <!-- FocusGuard palette — mirrors the Ui.kt design tokens so XML (theme,
+         dialogs, window background) and code-built views stay in lockstep. -->
+    <color name="fg_bg">#FF0A0A0F</color>
+    <color name="fg_surface">#FF15151D</color>
+    <color name="fg_surface_hi">#FF1C1C26</color>
+    <color name="fg_stroke">#FF2A2A36</color>
+    <color name="fg_accent">#FFFF7A18</color>
+    <color name="fg_accent_2">#FFFF3D81</color>
+    <color name="fg_text">#FFF5F5F7</color>
+    <color name="fg_text_dim">#FF9AA0A6</color>
 </resources>

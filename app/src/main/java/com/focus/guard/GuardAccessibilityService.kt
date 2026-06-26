@@ -41,7 +41,32 @@ class GuardAccessibilityService : AccessibilityService() {
             "com.terabox.app", "com.bsbportal.music",
             // --- adult / triggering ---
             "net.xvideo", "com.xnxx.app", "com.pornhub.app", "com.xhamster.app",
-            "com.redtube.app", "com.youporn.app", "com.adultapp", "com.sex.app"
+            "com.redtube.app", "com.youporn.app", "com.adultapp", "com.sex.app",
+            // --- ai companion / girlfriend ---
+            "ai.character.app", "com.chai", "com.replika",
+            "com.anima.android", "com.dreamgf.app", "com.kupid.android",
+            "com.janitorai", "com.crushon.app", "com.candy.ai",
+            "com.nastia.ai", "com.polybuzz", "com.muah.ai",
+            "com.gptgirlfriend", "com.romanticai",
+            // --- vpn / proxy / doh (bypass DNS filter) ---
+            "com.cloudflare.onedotonedotonedotone",  // 1.1.1.1
+            "com.nordvpn.android", "com.expressvpn.vpn", "com.surfshark.vpn.android",
+            "com.protonvpn.android", "net.freevpn.freevpn", "com.tunnelbear.android",
+            "com.hotspotshield.android", "org.torproject.android", "com.psiphon3",
+            "com.windscribe.vpn", "windscribe.vpn", "com.vyprvpn",
+            "com.anchorfree.hss", "com.anchorfree.mb",  // Hotspot Shield
+            "xyz.zeronet.android", "com.bypassvpn",
+            // --- app stores (third-party) ---
+            "org.fdroid.fdroid", "org.fdroid.fdroid.privileged",
+            "com.aptoide.partners", "com.aptoide", "com.apkpure.aegon",
+            "com.apkmirror.io", "com.samsung.android.app.galaxyapps",
+            "com.amazon.mShop.android.shopping",
+            "com.aurora.store", "com.torroLibre.android",
+            "com.oplus.appmarket", "com.coloros.appmarket", "com.heytap.market",
+            // --- dating / hookup ---
+            "com.tinder", "com.okcupid.okcupid", "com.badoo.android",
+            "com.happn.happn", "com.match.android", "com.pof.android",
+            "com.zoosk", "com.eharmony"
         )
 
         /** Packages the user explicitly wants to keep unblocked. Any package in
@@ -80,7 +105,19 @@ class GuardAccessibilityService : AccessibilityService() {
             // DNS-over-HTTPS providers: stop browser-level DNS bypass attempts.
             "dns.google","dns.quad9.net","cloudflare-dns.com","security.cloudflare-dns.com",
             "family.cloudflare-dns.com","mozilla.cloudflare-dns.com","doh.opendns.com",
-            "doh.cloudflare-dns.com"
+            "doh.cloudflare-dns.com",
+            // ai companion / girlfriend / roleplay
+            "character.ai","chub.ai","chai.ml","replika.com","emochi.app","kindroid.ai",
+            "janitorai.com","crushon.ai","candy.ai","nastia.ai","poe.com","talkie-ai.com",
+            "anima.ai","dreamgf.ai","kupid.ai","myanima.ai","romanticai.com",
+            "polybuzz.ai","aiscout.net","muah.ai","gptgirlfriend.com",
+            "tavern.ai","sillytavern.ai","pygmalion.chat","agnt.chat",
+            "pephop.ai","botify.ai","glimpse.chat","nomi.ai",
+            // app stores (web)
+            "aptoide.com","apkpure.com","apkmirror.com","f-droid.org",
+            // dating
+            "tinder.com","badoo.com","okcupid.com","happn.com",
+            "match.com","pof.com","zoosk.com","eharmony.com"
         )
 
         /** User-added domains and keywords (from the website/keyword screen),
@@ -96,7 +133,11 @@ class GuardAccessibilityService : AccessibilityService() {
             "youporn","spankbang","chaturbate","stripchat","bongacams","camgirl",
             "hentai","nhentai","javhd","milf","creampie","cumshot","blowjob",
             "deepthroat","gangbang","bukkake","handjob","threesome","fap",
-            "porno","porn ","xxx ","nsfw"
+            "porno","porn ","xxx ","nsfw",
+            // ai companion / girlfriend
+            "ai girlfriend","ai boyfriend","ai companion","character.ai","replika",
+            "nsfw character","roleplay ai","ai chatbot","ai waifu","sexbot",
+            "ai sexting","spicychat","c.ai "
         )
 
         /** Ambiguous words that CAN appear in JEE biology ("sexual reproduction",
@@ -106,21 +147,25 @@ class GuardAccessibilityService : AccessibilityService() {
             "porn","sex","nude","naked","erotic","adult","escort","camsex","webcam"
         )
 
-        /** Known browser packages. Domain blocking ONLY happens inside these, and
-         *  only by reading the ADDRESS BAR — never arbitrary on-screen text. This
-         *  is what stops WhatsApp/chat/search-result false positives: seeing a
-         *  "facebook.com" link in a message or search list does nothing; you're
-         *  only bounced when you actually navigate to the site in a browser. */
-        private val BROWSER_PACKAGES = setOf(
+        /** BROWSER WHITELIST — the ONLY browsers allowed on this device. Any
+         *  OTHER app that can open http(s) links is hard-blocked at runtime
+         *  (see [onServiceConnected] → [blockRogueBrowsers]). This closes the
+         *  "I'll just install a tiny privacy browser / in-app browser from a
+         *  random store" bypass: only the famous, useful browsers below run,
+         *  and they ALL get the full domain/keyword/DoH blocking applied. */
+        private val ALLOWED_BROWSERS = setOf(
             "com.android.chrome", "com.chrome.beta", "com.chrome.dev",
+            "com.microsoft.emmx",                           // Edge
             "org.mozilla.firefox", "org.mozilla.focus",
-            "com.brave.browser", "com.opera.browser", "com.opera.mini.native",
-            "com.opera.gx", "com.microsoft.emmx", "com.duckduckgo.mobile.android",
-            "com.sec.android.app.sbrowser", "com.heytap.browser", "com.coloros.browser",
-            "com.android.browser", "com.vivaldi.browser", "com.kiwibrowser.browser",
-            "com.UCMobile.intl", "mark.via.gp", "acr.browser.lightning",
-            "com.yandex.browser", "com.ecosia.android"
+            "com.brave.browser",
+            "com.duckduckgo.mobile.android",
+            "com.heytap.browser", "com.coloros.browser",   // Oppo/ColorOS stock
+            "com.sec.android.app.sbrowser"                  // Samsung Internet
         )
+
+        /** Packages that resolve an http(s) intent but are NOT in the whitelist.
+         *  Populated once on service connect and refreshed lazily. */
+        private val rogueBrowsers = mutableSetOf<String>()
 
         /** Resource-id suffixes of the URL/address bar across common browsers.
          *  We read the domain ONLY from a node whose viewIdResourceName ends with
@@ -152,6 +197,42 @@ class GuardAccessibilityService : AccessibilityService() {
             "com.android.permissioncontroller", "com.google.android.permissioncontroller",
             "com.coloros.optimize", "com.coloros.privacypermissionsentry"
         )
+
+        /** Apps that are PARTIALLY allowed — "scoped block". The local / offline
+         *  features run normally, but the in-app browser + online-downloader
+         *  surfaces are bounced. This is for apps the user genuinely needs (e.g.
+         *  a video player for study lectures) whose only temptation vector is
+         *  the built-in web browser / "online download" tab.
+         *
+         *  - Key   = package name
+         *  - Value = lowercase class-name substrings that identify a BLOCKED
+         *            screen (the browser / downloader surfaces). Every other
+         *            screen in the app is allowed.
+         *
+         *  Scoped apps are auto-removed from the user blocklist on service
+         *  connect (see onServiceConnected), so they can never get stuck in a
+         *  whole-app bounce. The blocked-domain / blocked-keyword web rules
+         *  ALSO apply inside these apps, so the downloader can't reach blocked
+         *  sites even from a screen we didn't enumerate. */
+        internal val SCOPED_APPS: Map<String, List<String>> = mapOf(
+            // XPlayer (video.player.videoplayer): allow local playback only.
+            // ONLY the in-app web delegate is blocked by class name — everything
+            // else (FileExplorerActivity, PlayerActivity, MusicPlayActivity) runs
+            // normally. We deliberately do NOT match on "explore"/"search"/"web"
+            // because those substrings collide with local-file screens
+            // (e.g. FileExplorerActivity → the local picker the app opens at launch).
+            // The online-downloader is also caught by the URL-bar scan below.
+            "video.player.videoplayer" to listOf("webdelegate", "webscreen", "webview"),
+            // Google Play Store: block discovery surfaces. System package installer
+            // handles updates so those keep working.
+            "com.android.vending" to listOf(
+                "topcharts", "categories", "browseapps", "browsegames"
+            )
+        )
+
+        /** True if [pkg] is under a scoped (partial) block — i.e. allowed to run
+         *  but with its browser/downloader screens bounced. */
+        fun isScoped(pkg: String): Boolean = pkg in SCOPED_APPS
 
         /** Packages that exist ONLY to manage/revoke security & permissions.
          *  A window or event from any of these is a hard self-defense block,
@@ -250,6 +331,11 @@ class GuardAccessibilityService : AccessibilityService() {
     private var lastScanAt = 0L
     private var lastBlockAt = 0L
 
+    // Cached "alarm ringing or due soon" flag — refreshed every 30s so we
+    // don't read SharedPreferences on every accessibility event.
+    private var alarmImminentCache = false
+    private var alarmImminentCheckedAt = 0L
+
     // --- Minecraft credit economy ---
     private val credits by lazy { CreditManager(this) }
     private var minecraftForeground = false
@@ -279,18 +365,46 @@ class GuardAccessibilityService : AccessibilityService() {
         super.onServiceConnected()
         // Merge the user's persisted blocklist into the in-memory fast-path set so
         // app-picker choices and captured installs survive reboot / service restart.
-        try {
-            Blocklist.pushLive(this)
-        } catch (_: Exception) {}
-        // Enforce whitelist — remove any whitelisted packages from both the
-        // in-memory set and the persisted storage, so auto-capture can never
-        // re-block them (e.g. WhatsApp reinstall after a factory reset).
-        for (pkg in WHITELISTED_PACKAGES) {
+        try { Blocklist.pushLive(this) } catch (_: Exception) {}
+        // Allow-list + scoped apps must NEVER be whole-app blocked. Both groups
+        // get the same treatment (remove from the live set AND persisted store),
+        // so auto-capture from a fresh install can never re-trap them.
+        for (pkg in WHITELISTED_PACKAGES + SCOPED_APPS.keys) {
             blockedPackages.remove(pkg)
             try { Blocklist.remove(this, pkg) } catch (_: Exception) {}
         }
+        // BROWSER WHITELIST ENFORCEMENT: find every installed app that can open
+        // http(s) links and hard-block any that isn't on the whitelist. This runs
+        // once per service connect (cheap) and catches fresh browser installs on
+        // the next reconnect.
+        blockRogueBrowsers()
         Log.i(TAG, "Service connected; ${blockedPackages.size} apps, " +
                 "${userDomains.size} sites, ${userKeywords.size} keywords (user).")
+    }
+
+    /** Scan installed apps for http(s) handlers that aren't on the browser
+     *  whitelist and add them to the live block set. Idempotent and cheap —
+     *  PackageManager query is the only cost. */
+    private fun blockRogueBrowsers() {
+        try {
+            val intent = Intent(Intent.ACTION_VIEW)
+                .addCategory(Intent.CATEGORY_BROWSABLE)
+                .setData(android.net.Uri.parse("https://"))
+            val pm = packageManager
+            val flags = android.content.pm.PackageManager.GET_RESOLVED_FILTER
+            val safe = ALLOWED_BROWSERS + SCOPED_APPS.keys + WHITELISTED_PACKAGES +
+                       blockedPackages + setOf(packageName)
+            pm.queryIntentActivities(intent, flags).forEach { ri ->
+                val pkg = ri.activityInfo.packageName
+                if (pkg !in safe) {
+                    blockedPackages.add(pkg)
+                    rogueBrowsers.add(pkg)
+                }
+            }
+            if (rogueBrowsers.isNotEmpty()) {
+                Log.i(TAG, "Rogue browsers blocked: $rogueBrowsers")
+            }
+        } catch (_: Exception) {}
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
@@ -311,6 +425,21 @@ class GuardAccessibilityService : AccessibilityService() {
         // NEVER act on our own app — its status screen literally lists
         // "Accessibility"/"FocusGuard", which would self-trigger every block.
         if (evtPkgLc == packageName.lowercase()) return
+
+        // POWER-OFF BLOCK (alarm anti-dodge): when an alarm is ringing or due
+        // within 30 min, intercept the SystemUI power-off / restart dialog.
+        // This is the ONLY SystemUI surface we ever act on — it stops the user
+        // from shutting the phone down to dodge a pending or active alarm.
+        // (The long-press power menu is handled by SystemUI before any app sees
+        // the key event, so dispatchKeyEvent alone can't catch it — only the
+        // accessibility service can dismiss the resulting dialog.)
+        if (evtPkg in SYSTEM_UI_PACKAGES && alarmActiveOrImminent()) {
+            if (isPowerOffDialog(evtCls) || hasPowerOffText()) {
+                Log.d(TAG, "Power-off dialog blocked (alarm active/imminent) cls=$evtCls")
+                performGlobalAction(GLOBAL_ACTION_BACK)
+                return
+            }
+        }
 
         // NEVER act on the launcher / system UI. Editing the dock, the app drawer,
         // recents, and the notification shade all live here — blocking them traps
@@ -336,7 +465,7 @@ class GuardAccessibilityService : AccessibilityService() {
         //     Family. This is the strongest non-root defense against browser
         //     DoH bypass. (Settings activity class names contain "settings" /
         //     "preferences" fragments; matched only when fired by a browser.)
-        if (evtPkg in BROWSER_PACKAGES &&
+        if (evtPkg in ALLOWED_BROWSERS &&
             BROWSER_SETTINGS_CLASS_HINTS.any { it in evtCls }) {
             Log.d(TAG, "Browser settings block (DoH bypass prevention): pkg=$evtPkg cls=$evtCls")
             blockNow()
@@ -371,6 +500,22 @@ class GuardAccessibilityService : AccessibilityService() {
             Log.d(TAG, "App block: $evtPkg")
             goHome()
             return
+        }
+
+        // 1b. SCOPED (partial) block. The app itself is allowed (e.g. a video
+        //     player the user needs), but its in-app browser / online-downloader
+        //     screens are bounced. We match on the activity CLASS name, because
+        //     these surfaces ship as distinct activities (e.g. X Player's
+        //     "PlayerActivity$WebDelegate"). The event className carries the
+        //     activity (incl. inner-class names like "$WebDelegate") on
+        //     TYPE_WINDOW_STATE_CHANGED, which is exactly when a blocked screen
+        //     opens — so we bounce the instant it appears.
+        SCOPED_APPS[evtPkg]?.let { blockedScreens ->
+            if (blockedScreens.any { it in evtCls }) {
+                Log.d(TAG, "Scoped block (browser/downloader): pkg=$evtPkg cls=$evtCls")
+                goHome()
+                return
+            }
         }
 
         // Throttle the heavier window scan.
@@ -420,23 +565,53 @@ class GuardAccessibilityService : AccessibilityService() {
         // Foreground is no longer a danger screen → tear the block screen down.
         removeBlockOverlay()
 
-        // 3. WEB BLOCK — PRECISE. Only inside a real browser, and only by reading
-        //    the ADDRESS BAR. A blocked domain merely shown as a link in chat or
-        //    in a list of search results does NOTHING — you're bounced only when
-        //    you actually navigate to the site. This is the anti-false-positive fix.
+        // 3. WEB BLOCK — PRECISE. Only inside a real browser (or a scoped app's
+        //    browser surface), and only by reading the ADDRESS BAR. A blocked
+        //    domain merely shown as a link in chat or in a list of search results
+        //    does NOTHING — you're bounced only when you actually navigate to the
+        //    site. This is the anti-false-positive fix.
         if (evtPkg in SYSTEM_UI_PACKAGES) return
-        if (evtPkg !in BROWSER_PACKAGES) return
+        // A scoped app (e.g. X Player) is treated like a browser for URL-bar
+        // scanning: if its in-app browser navigates to a blocked domain / DoH
+        // IP, bounce. This catches the downloader reaching blocked sites even
+        // when the browser screen's class name didn't match SCOPED_APPS.
+        val isBrowserLike = evtPkg in ALLOWED_BROWSERS || evtPkg in SCOPED_APPS
+        if (!isBrowserLike) return
 
-        val urlBar = readUrlBar() ?: return
-        if (blockedDomains.any { it in urlBar } || userDomains.any { it in urlBar }) {
-            Log.d(TAG, "Domain block: $urlBar")
+        val urlBar = readUrlBar()
+
+        // 3a. SCOPED-APP BROWSE BLOCK — primary: URL bar found.
+        //     The user explicitly allowed this app ONLY for its offline features
+        //     (local playback / files). Any online navigation — to ANY site —
+        //     is bounced.
+        if (evtPkg in SCOPED_APPS) {
+            if (urlBar != null && looksLikeOnlineUrl(urlBar)) {
+                Log.d(TAG, "Scoped browse block (URL bar online): $urlBar")
+                goHome(); return
+            }
+            // 3b. SCOPED-APP WEBVIEW FALLBACK. Obfuscated browsers (e.g. XPlayer)
+            //     run inside a WebView embedded in the main Activity — the URL bar
+            //     uses non-standard resource IDs so readUrlBar() returns null.
+            //     Detection: a WebView node is present in the tree + the collected
+            //     screen text contains a blocked domain, online URL, or adult keyword.
+            //     This is safe because local video playback does NOT use WebView.
+            if (urlBar == null && hasWebViewNode() && scopedTextHits(text)) {
+                Log.d(TAG, "Scoped WebView block (text scan)")
+                goHome(); return
+            }
+            return // scoped app: no browser activity detected → allow
+        }
+
+        // 4. ALLOWED-BROWSER DOMAIN / KEYWORD / DOH BLOCK.
+        //    Only whitelisted browsers reach here; urlBar is their standard bar.
+        val bar = urlBar ?: return
+        if (blockedDomains.any { it in bar } || userDomains.any { it in bar }) {
+            Log.d(TAG, "Domain block: $bar")
             goHome()
-        } else if (userKeywords.any { it in urlBar }) {
-            // User keywords are matched only in the URL bar too, so a chemistry
-            // page that merely mentions a word isn't blocked — only a search/URL.
-            Log.d(TAG, "Keyword-in-URL block: $urlBar")
+        } else if (userKeywords.any { it in bar }) {
+            Log.d(TAG, "Keyword-in-URL block: $bar")
             goHome()
-        } else if (isDoHBypassAttempt(urlBar)) {
+        } else if (isDoHBypassAttempt(bar)) {
             // User typed a DoH resolver IP (1.1.1.1 / 8.8.8.8 / 9.9.9.9 / ...)
             // directly in the address bar — they're trying to reach a
             // DNS-over-HTTPS endpoint to tunnel around the Cloudflare Family
@@ -454,6 +629,19 @@ class GuardAccessibilityService : AccessibilityService() {
         // The IP regex matches IPv4 literals; we then check membership in the set.
         val ipRegex = Regex("(?<![\\d.])(\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3})(?![\\d.])")
         return ipRegex.findAll(urlBar).any { it.groupValues[1] in DOH_IP_LITERALS }
+    }
+
+    /** True if a URL-bar string is an ONLINE address (not a local file path).
+     *  Used to bounce ALL browsing inside scoped apps — the app is allowed only
+     *  for offline use, so any http(s) URL or dotted domain means the user has
+     *  opened the in-app browser / downloader. Local paths like
+     *  "/storage/emulated/0/Movies/lecture.mp4" deliberately do NOT match. */
+    private fun looksLikeOnlineUrl(urlBar: String): Boolean {
+        if (urlBar.startsWith("http://") || urlBar.startsWith("https://")) return true
+        // a.b domain (e.g. "example.com", "sub.example.co.in"). Requires a dot
+        // AND a TLD-ish suffix; rejects bare filenames and /storage/ paths.
+        val domain = Regex("(?<=[\\s./])([a-z0-9-]+\\.)+[a-z]{2,}(?=/|\\s|$|:)")
+        return domain.containsMatchIn(urlBar)
     }
 
     /** Read the current browser address-bar text, or null if not found. We walk
@@ -484,6 +672,42 @@ class GuardAccessibilityService : AccessibilityService() {
             }
         }
         return null
+    }
+
+    /** Detect a WebView node anywhere in the active windows. Obfuscated
+     *  browsers (e.g. XPlayer) run inside an android.webkit.WebView embedded
+     *  in the main Activity — no separate Activity class fires. A WebView
+     *  node is strong evidence of active in-app browsing. */
+    private fun hasWebViewNode(): Boolean {
+        try {
+            for (w in windows) {
+                val root = w.root ?: continue
+                if (findWebView(root)) return true
+            }
+        } catch (_: Exception) {}
+        return false
+    }
+
+    private fun findWebView(node: AccessibilityNodeInfo): Boolean {
+        if (node.className?.toString()?.contains("WebView") == true) return true
+        for (i in 0 until node.childCount) {
+            node.getChild(i)?.let { if (findWebView(it)) return true }
+        }
+        return false
+    }
+
+    /** Check whether the on-screen text from a scoped app contains any
+     *  blocked domain, online URL pattern, or adult keyword. Used as a
+     *  fallback when the URL bar can't be read (obfuscated resource IDs)
+     *  but a WebView node confirms browsing is active. */
+    private fun scopedTextHits(text: String): Boolean {
+        if (blockedDomains.any { it in text }) return true
+        if (userDomains.any { it in text }) return true
+        if (userKeywords.any { it in text }) return true
+        if (keywordHit(text)) return true
+        // Catch any dotted domain (e.g. "instagram.com" visible in page text)
+        if (looksLikeOnlineUrl(text)) return true
+        return false
     }
 
     /**
@@ -639,6 +863,51 @@ class GuardAccessibilityService : AccessibilityService() {
             startActivity(home)
         } catch (_: Exception) {}
         performGlobalAction(GLOBAL_ACTION_HOME)
+    }
+
+    /** Cached check: is an alarm ringing or due within 30 min? The cache
+     *  refreshes every 30s so we avoid SharedPreferences reads on every event.
+     *  RINGING is always checked live (no cache) so we react instantly. */
+    private fun alarmActiveOrImminent(): Boolean {
+        if (AlarmRingActivity.RINGING) return true
+        val now = SystemClock.uptimeMillis()
+        if (now - alarmImminentCheckedAt < 30_000L) return alarmImminentCache
+        alarmImminentCheckedAt = now
+        alarmImminentCache = try {
+            AlarmScheduler.alarmActiveOrImminent(this)
+        } catch (_: Exception) { false }
+        return alarmImminentCache
+    }
+
+    /** Detect the SystemUI global-actions (power-off / restart) dialog by
+     *  class-name fragments. Covers AOSP + common OEMs (ColorOS, Samsung, etc.). */
+    private fun isPowerOffDialog(cls: String): Boolean {
+        val hints = listOf(
+            "globalactions", "globalaction",     // AOSP power dialog
+            "shutdown", "poweroff", "powerdialog", "powermenu"  // OEM variants
+        )
+        return hints.any { it in cls }
+    }
+
+    /** Fallback: scan SystemUI windows for power-off / restart confirmation
+     *  text. Only runs when an alarm is active/imminent, so the cost is
+     *  negligible and false positives can't happen outside that window. */
+    private fun hasPowerOffText(): Boolean {
+        val powerWords = listOf(
+            "power off", "shut down", "shutdown", "restart", "reboot"
+        )
+        try {
+            for (w in windows) {
+                val root = w.root ?: continue
+                val wpkg = (root.packageName?.toString() ?: "").lowercase()
+                if (wpkg !in SYSTEM_UI_PACKAGES) continue
+                val sb = StringBuilder()
+                collectText(root, sb)
+                val t = sb.toString().lowercase()
+                if (powerWords.any { it in t }) return true
+            }
+        } catch (_: Exception) {}
+        return false
     }
 
     private fun collectText(node: AccessibilityNodeInfo, out: StringBuilder = StringBuilder()): String {
